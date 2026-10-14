@@ -1,4 +1,3 @@
-//tag::top[]
 import FusionAuthClient from "@fusionauth/typescript-client";
 import express from 'express';
 import cookieParser from 'cookie-parser';
@@ -73,14 +72,10 @@ app.use(express.urlencoded());
 
 app.use(express.json());
 
-//end::top[]
 
 // Static Files
-//tag::static[]
 app.use('/static', express.static(path.join(__dirname, '../static/')));
-//end::static[]
 
-//tag::homepage[]
 app.get("/", async (req, res) => {
   const userTokenCookie = req.cookies[userToken];
   if (await validateUser(userTokenCookie)) {
@@ -93,9 +88,7 @@ app.get("/", async (req, res) => {
     res.sendFile(path.join(__dirname, '../templates/home.html'));
   }
 });
-//end::homepage[]
 
-//tag::login[]
 app.get('/login', (req, res, next) => {
   const userSessionCookie = req.cookies[userSession];
 
@@ -106,9 +99,7 @@ app.get('/login', (req, res, next) => {
 
   res.redirect(302, `${fusionAuthURL}/oauth2/authorize?client_id=${clientId}&response_type=code&scope=offline_access&redirect_uri=http://localhost:${port}/oauth-redirect&state=${userSessionCookie?.stateValue}&code_challenge=${userSessionCookie?.challenge}&code_challenge_method=S256`)
 });
-//end::login[]
 
-//tag::oauth-redirect[]
 app.get('/oauth-redirect', async (req, res, next) => {
   // Capture query params
   const stateFromFusionAuth = `${req.query?.state}`;
@@ -137,8 +128,9 @@ app.get('/oauth-redirect', async (req, res, next) => {
     }
     res.cookie(userToken, accessToken, { httpOnly: true })
 
-    // Exchange Access Token for User
-    const userResponse = (await client.retrieveUserUsingJWT(accessToken.access_token)).response;
+    // user api no longer accepts JWTs, so look the user up by the token sub
+    const { sub } = JSON.parse(Buffer.from((accessToken.access_token as string).split('.')[1], 'base64url').toString());
+    const userResponse = (await new FusionAuthClient(fusionAPIKey as string, fusionAuthURL).retrieveUser(sub)).response;
     if (!userResponse?.user) {
       console.error('Failed to get User from access token, redirecting home.');
       res.redirect(302, '/');
@@ -153,9 +145,7 @@ app.get('/oauth-redirect', async (req, res, next) => {
     }))
   }
 });
-//end::oauth-redirect[]
 
-//tag::account[]
 app.get("/account", async (req, res) => {
   const userTokenCookie = req.cookies[userToken];
   if (!await validateUser(userTokenCookie)) {
@@ -164,9 +154,7 @@ app.get("/account", async (req, res) => {
     res.sendFile(path.join(__dirname, '../templates/account.html'));
   }
 });
-//end::account[]
 
-//tag::make-change[]
 app.get("/make-change", async (req, res) => {
   const userTokenCookie = req.cookies[userToken];
   if (!await validateUser(userTokenCookie)) {
@@ -215,15 +203,11 @@ app.post("/make-change", async (req, res) => {
   }))
 
 });
-//end::make-change[]
 
-//tag::logout[]
 app.get('/logout', (req, res, next) => {
   res.redirect(302, `${fusionAuthURL}/oauth2/logout?client_id=${clientId}`);
 });
-//end::logout[]
 
-//tag::oauth-logout[]
 app.get('/oauth2/logout', async (req, res, next) => {
   console.log('Logging out...')
 
@@ -244,9 +228,7 @@ app.get('/oauth2/logout', async (req, res, next) => {
   res.clearCookie(userDetails);
   res.redirect(302, '/')
 });
-//end::oauth-logout[]
 
-//tag::device-limiting[]
 app.post('/user-login-success', async (req, res, next) => {
 
   if (req.body.event.applicationId !== clientId)
@@ -257,7 +239,6 @@ app.post('/user-login-success', async (req, res, next) => {
 
   // Make a request to FusionAuth with an API key to get the user's refresh tokens.
   // This is effectively the same as counting the number of active sessions, and therefore devices a user has logged in on.
-//tag::active-session-count[]
   const tokenResponse = await fetch(`${fusionAuthURL}/api/jwt/refresh?userId=${userId}`, {
     method: 'GET',
     headers: {
@@ -269,7 +250,6 @@ app.post('/user-login-success', async (req, res, next) => {
   // Filter to only refresh tokens for this application.
   tokens.refreshTokens = tokens.refreshTokens.filter((token: any) => token.applicationId === clientId);
   const activeSessionCount = tokens.refreshTokens.length;
-//end::active-session-count[]
 
   console.log(`User has ${activeSessionCount} of ${maxDeviceCount} allowed active sessions.`);
   if (activeSessionCount >= maxDeviceCount) {
@@ -281,11 +261,8 @@ app.post('/user-login-success', async (req, res, next) => {
   }
 
 });
-//end::device-limiting[]
 
 // start the Express server
-//tag::app[]
 app.listen(port, () => {
   console.log(`server started at http://localhost:${port}`);
 });
-//end::app[]

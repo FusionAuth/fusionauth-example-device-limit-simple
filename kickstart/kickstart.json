@@ -23,7 +23,6 @@
     {
       "method": "POST",
       "url": "/api/key/generate/#{asymmetricKeyId}",
-      "tenantId": "#{defaultTenantId}",
       "body": {
         "key": {
           "algorithm": "RS256",
@@ -117,7 +116,7 @@
           "connectTimeout": 5000,
           "readTimeout": 10000,
           "eventsEnabled": {
-              "user.login.success": true
+            "user.login.success": true
           }
         }
       }
@@ -146,10 +145,10 @@
       "url": "/api/tenant/#{defaultTenantId}",
       "body": {
         "tenant": {
-          "themeId": "#{newThemeId}", 
+          "themeId": "#{newThemeId}",
           "eventConfiguration": {
-            "events":{ 
-              "user.login.success":{
+            "events": {
+              "user.login.success": {
                 "enabled": true,
                 "transactionType": "AbsoluteMajority"
               }
